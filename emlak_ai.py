@@ -297,10 +297,12 @@ with tab1:
 
             if ham_metin:
                 st.success(f"✅ Belge yüklendi — {len(reader.pages)} sayfa, {len(ham_metin)} karakter")
+                st.session_state['tapu_ham_metin'] = ham_metin
 
-                if st.button("🔍 Tapu & Risk Analizini Başlat", key="tapu_analiz"):
+                if st.button("🔍 Tapu & Risk Analizini Başlat", key="tapu_analiz_btn"):
                     with st.spinner("🤖 Analiz yapılıyor..."):
-                        st.session_state['tapu_analiz'] = tapu_analiz_et(ham_metin)
+                        sonuc = tapu_analiz_et(st.session_state['tapu_ham_metin'])
+                    st.session_state['tapu_analiz'] = sonuc
             else:
                 st.warning("⚠️ PDF'den metin çıkarılamadı. Taranmış görüntü olabilir.")
 
@@ -364,12 +366,17 @@ with tab2:
 
         if st.button("📊 Fiyat Raporu Oluştur", key="fiyat_rapor"):
             if ilce and mahalle:
-                with st.spinner("📈 Piyasa analizi yapılıyor..."):
-                    st.session_state['fiyat_raporu'] = fiyat_raporu_olustur(
-                        ilce, mahalle, metrekare, oda_sayisi, bina_yasi, kat, ozellikler
-                    )
+                st.session_state['fiyat_tetik'] = True
+                st.session_state['fiyat_params'] = (ilce, mahalle, metrekare, oda_sayisi, bina_yasi, kat, ozellikler)
             else:
                 st.warning("Lütfen en az ilçe ve mahalle bilgisini girin.")
+        
+        if st.session_state.get('fiyat_tetik'):
+            st.session_state['fiyat_tetik'] = False
+            params = st.session_state.get('fiyat_params', ())
+            with st.spinner("📈 Piyasa analizi yapılıyor..."):
+                st.session_state['fiyat_raporu'] = fiyat_raporu_olustur(*params)
+            st.rerun()
 
     with col2:
         st.markdown("#### 📈 Değerleme Raporu")
@@ -420,11 +427,20 @@ with tab3:
         if st.button("✨ İlan Metni Oluştur", key="ilan_olustur"):
             if ilan_baslik and ilan_ozellikler:
                 bilgiler = f"Başlık: {ilan_baslik}\nFiyat: {ilan_fiyat}\nKonum: {ilan_konum}\nÖzellikler: {ilan_ozellikler}"
-                with st.spinner(f"✍️ {platform} için metin hazırlanıyor..."):
-                    st.session_state['ilan_metni'] = ilan_metni_olustur(bilgiler, platform)
-                    st.session_state['ilan_platform'] = platform
+                st.session_state['ilan_tetik'] = True
+                st.session_state['ilan_bilgiler'] = bilgiler
+                st.session_state['ilan_platform'] = platform
             else:
                 st.warning("Lütfen en az başlık ve özellikler kısmını doldurun.")
+        
+        if st.session_state.get('ilan_tetik'):
+            st.session_state['ilan_tetik'] = False
+            with st.spinner(f"✍️ {st.session_state.get('ilan_platform', '')} için metin hazırlanıyor..."):
+                st.session_state['ilan_metni'] = ilan_metni_olustur(
+                    st.session_state.get('ilan_bilgiler', ''),
+                    st.session_state.get('ilan_platform', '')
+                )
+            st.rerun()
 
     with col2:
         st.markdown("#### 📋 Hazırlanan İlan Metni")
@@ -553,10 +569,22 @@ with tab4:
             Minimum Oda: {secilen['oda']}
             Özel Talepler: {secilen['notlar']}
             """
+            st.session_state['eslestirme_tetik'] = True
+            st.session_state['eslestirme_profil'] = profil
+            st.session_state['eslestirme_portfoy'] = portfoy_gir
+
+        if st.session_state.get('eslestirme_tetik'):
+            st.session_state['eslestirme_tetik'] = False
             with st.spinner("🔍 En uygun eşleşme aranıyor..."):
-                sonuc = musteri_eslestir(profil, portfoy_gir)
+                st.session_state['eslestirme_sonuc'] = musteri_eslestir(
+                    st.session_state.get('eslestirme_profil', ''),
+                    st.session_state.get('eslestirme_portfoy', '')
+                )
+            st.rerun()
+
+        if 'eslestirme_sonuc' in st.session_state:
             st.success("✅ Eşleştirme Sonucu")
-            st.markdown(sonuc)
+            st.markdown(st.session_state['eslestirme_sonuc'])
     else:
         st.markdown("""
         <div class="warning-box">
@@ -573,5 +601,4 @@ with col_f1:
 with col_f2:
     st.caption("⚡ GPT-4o + Streamlit")
 with col_f3:
-
     st.caption("🔒 Verileriniz model eğitimi için kullanılmaz")
