@@ -482,115 +482,300 @@ with tab3:
 
 
 # ============================================================
-# TAB 4: MÜŞTERİ PORTFÖY YÖNETİMİ
+# TAB 4: MÜŞTERİ & PORTFÖY YÖNETİMİ
 # ============================================================
 with tab4:
-    st.subheader("👥 Müşteri Portföy Yönetimi")
+    st.subheader("👥 Müşteri & Mülk Portföy Yönetimi")
 
-    col1, col2 = st.columns([1, 1])
+    # --- Alt sekmeler ---
+    p_tab1, p_tab2, p_tab3 = st.tabs([
+        "👤 Müşteriler",
+        "🏠 Mülk Portföyü",
+        "🎯 Akıllı Eşleştirme"
+    ])
 
-    with col1:
-        st.markdown("#### ➕ Yeni Müşteri Ekle")
+    # ── MÜŞTERİLER ──────────────────────────────────────────
+    with p_tab1:
+        col1, col2 = st.columns([1, 1])
 
-        with st.form("musteri_formu", clear_on_submit=True):
-            m_ad = st.text_input("Ad Soyad *", placeholder="örn: Ahmet Yılmaz")
-            m_tel = st.text_input("Telefon", placeholder="05XX XXX XX XX")
+        with col1:
+            st.markdown("#### ➕ Yeni Müşteri Ekle")
+            with st.form("musteri_formu", clear_on_submit=True):
+                m_ad   = st.text_input("Ad Soyad *", placeholder="örn: Ahmet Yılmaz")
+                m_tel  = st.text_input("Telefon", placeholder="05XX XXX XX XX")
+                m_eposta = st.text_input("E-posta", placeholder="ornek@email.com")
 
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                m_butce_min = st.number_input("Min. Bütçe (TL)", min_value=0, step=100000, value=1000000)
-            with col_f2:
-                m_butce_max = st.number_input("Max. Bütçe (TL)", min_value=0, step=100000, value=5000000)
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    m_butce_min = st.number_input("Min. Bütçe (TL)", min_value=0, step=100000, value=1000000)
+                with col_f2:
+                    m_butce_max = st.number_input("Max. Bütçe (TL)", min_value=0, step=100000, value=5000000)
 
-            m_konum = st.text_input("Tercih Ettiği Bölge(ler)", placeholder="örn: Kadıköy, Üsküdar, Beşiktaş")
-            m_tip = st.multiselect("Aranan Mülk Tipi", ["Daire", "Villa", "Müstakil", "Arsa", "Ticari"])
-            m_oda = st.selectbox("Minimum Oda Sayısı", ["Farketmez", "1+1", "2+1", "3+1", "4+1+"])
-            m_notlar = st.text_area("Özel Notlar / Talepler", placeholder="Balkon şart, evcil hayvan dostu site, okul yakını...", height=80)
+                m_konum = st.text_input("Tercih Bölge(ler)", placeholder="örn: Kadıköy, Üsküdar")
+                m_tip   = st.multiselect("Aranan Mülk Tipi", ["Daire", "Villa", "Müstakil", "Arsa", "Ticari"])
+                m_oda   = st.selectbox("Min. Oda", ["Farketmez", "1+1", "2+1", "3+1", "4+1+"])
+                m_oncelik = st.multiselect("Öncelikler", ["Ulaşım", "Okul", "Sessizlik", "Manzara", "Yeni bina", "Balkon", "Otopark"])
+                m_notlar = st.text_area("Özel Notlar", placeholder="Evcil hayvan dostu site, takas düşünür...", height=70)
 
-            submitted = st.form_submit_button("✅ Müşteriyi Kaydet")
-            if submitted and m_ad:
-                yeni_musteri = {
-                    "id": len(st.session_state['musteriler']) + 1,
-                    "ad": m_ad,
-                    "tel": m_tel,
-                    "butce_min": m_butce_min,
-                    "butce_max": m_butce_max,
-                    "konum": m_konum,
-                    "tip": m_tip,
-                    "oda": m_oda,
-                    "notlar": m_notlar,
-                    "tarih": datetime.now().strftime("%d.%m.%Y")
-                }
-                st.session_state['musteriler'].append(yeni_musteri)
-                st.success(f"✅ {m_ad} portföye eklendi!")
+                if st.form_submit_button("✅ Müşteriyi Kaydet"):
+                    if m_ad:
+                        yeni = {
+                            "id": len(st.session_state['musteriler']) + 1,
+                            "ad": m_ad, "tel": m_tel, "eposta": m_eposta,
+                            "butce_min": m_butce_min, "butce_max": m_butce_max,
+                            "konum": m_konum, "tip": m_tip, "oda": m_oda,
+                            "oncelik": m_oncelik, "notlar": m_notlar,
+                            "tarih": datetime.now().strftime("%d.%m.%Y"),
+                            "durum": "Aktif"
+                        }
+                        st.session_state['musteriler'].append(yeni)
+                        st.success(f"✅ {m_ad} portföye eklendi!")
+                    else:
+                        st.warning("Ad Soyad zorunludur.")
 
-    with col2:
-        st.markdown("#### 📋 Aktif Müşteri Listesi")
+        with col2:
+            st.markdown("#### 📋 Müşteri Listesi")
+            if st.session_state['musteriler']:
+                for m in st.session_state['musteriler']:
+                    etiket = f"👤 {m['ad']}  |  {m['konum']}  |  {m['butce_min']:,}–{m['butce_max']:,} TL"
+                    with st.expander(etiket):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.markdown(f"📞 **Tel:** {m['tel']}")
+                            st.markdown(f"📧 **E-posta:** {m.get('eposta','—')}")
+                            st.markdown(f"🛏️ **Min. Oda:** {m['oda']}")
+                        with c2:
+                            st.markdown(f"🏠 **Tip:** {', '.join(m['tip']) if m['tip'] else '—'}")
+                            st.markdown(f"⭐ **Öncelik:** {', '.join(m.get('oncelik',[])) if m.get('oncelik') else '—'}")
+                            st.markdown(f"📅 **Eklenme:** {m['tarih']}")
+                        if m['notlar']:
+                            st.markdown(f"📝 **Not:** {m['notlar']}")
+            else:
+                st.markdown('<div class="info-box">👥 Henüz müşteri eklenmedi.</div>', unsafe_allow_html=True)
 
-        if st.session_state['musteriler']:
-            for musteri in st.session_state['musteriler']:
-                with st.expander(f"👤 {musteri['ad']} — {musteri['konum']} | {musteri['butce_min']:,} - {musteri['butce_max']:,} TL"):
-                    st.markdown(f"📞 **Tel:** {musteri['tel']}")
-                    st.markdown(f"🏠 **Tip:** {', '.join(musteri['tip']) if musteri['tip'] else 'Belirtilmemiş'}")
-                    st.markdown(f"🛏️ **Oda:** {musteri['oda']}")
-                    st.markdown(f"📝 **Notlar:** {musteri['notlar']}")
-                    st.markdown(f"📅 **Eklenme:** {musteri['tarih']}")
-        else:
+    # ── MÜLKPortföyü ─────────────────────────────────────────
+    with p_tab2:
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            st.markdown("#### ➕ Yeni Mülk Ekle")
+            with st.form("mulk_formu", clear_on_submit=True):
+                mulk_baslik = st.text_input("Mülk Başlığı *", placeholder="örn: Kadıköy Moda 3+1")
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    mulk_ilce = st.text_input("İlçe", placeholder="Kadıköy")
+                with col_b:
+                    mulk_mahalle = st.text_input("Mahalle", placeholder="Moda")
+
+                col_c, col_d = st.columns(2)
+                with col_c:
+                    mulk_fiyat = st.number_input("Fiyat (TL)", min_value=0, step=100000, value=5000000)
+                with col_d:
+                    mulk_m2 = st.number_input("Alan (m²)", min_value=0, step=5, value=100)
+
+                col_e, col_f = st.columns(2)
+                with col_e:
+                    mulk_oda = st.selectbox("Oda Sayısı", ["1+0","1+1","2+1","3+1","4+1","4+2+"])
+                with col_f:
+                    mulk_yas = st.number_input("Bina Yaşı", min_value=0, max_value=100, value=5)
+
+                mulk_ozellik = st.multiselect("Özellikler",
+                    ["Balkon","Asansör","Otopark","Güvenlik","Havuz","Manzara",
+                     "Ebeveyn Banyosu","Kombili","Merkezi Isıtma","Yeni bina","Site içi"])
+                mulk_not = st.text_area("Ek Notlar", height=60, placeholder="Kiracılı, tapu temiz, acil satış...")
+
+                if st.form_submit_button("✅ Mülkü Portföye Ekle"):
+                    if mulk_baslik:
+                        if 'mulkler' not in st.session_state:
+                            st.session_state['mulkler'] = []
+                        yeni_mulk = {
+                            "id": len(st.session_state['mulkler']) + 1,
+                            "baslik": mulk_baslik,
+                            "ilce": mulk_ilce, "mahalle": mulk_mahalle,
+                            "fiyat": mulk_fiyat, "m2": mulk_m2,
+                            "oda": mulk_oda, "yas": mulk_yas,
+                            "ozellik": mulk_ozellik, "not": mulk_not,
+                            "tarih": datetime.now().strftime("%d.%m.%Y")
+                        }
+                        st.session_state['mulkler'].append(yeni_mulk)
+                        st.success(f"✅ '{mulk_baslik}' portföye eklendi!")
+                    else:
+                        st.warning("Mülk başlığı zorunludur.")
+
+        with col2:
+            st.markdown("#### 🏠 Mülk Listesi")
+            if 'mulkler' not in st.session_state:
+                st.session_state['mulkler'] = []
+
+            if st.session_state['mulkler']:
+                for mulk in st.session_state['mulkler']:
+                    m2_fiyat = int(mulk['fiyat'] / mulk['m2']) if mulk['m2'] > 0 else 0
+                    etiket = f"🏠 {mulk['baslik']}  |  {mulk['fiyat']:,} TL  |  {mulk['m2']} m²"
+                    with st.expander(etiket):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.markdown(f"📍 **Konum:** {mulk['ilce']} / {mulk['mahalle']}")
+                            st.markdown(f"🛏️ **Oda:** {mulk['oda']}")
+                            st.markdown(f"🏗️ **Bina Yaşı:** {mulk['yas']} yıl")
+                        with c2:
+                            st.markdown(f"💰 **m² Fiyatı:** {m2_fiyat:,} TL")
+                            st.markdown(f"✨ **Özellikler:** {', '.join(mulk['ozellik']) if mulk['ozellik'] else '—'}")
+                            st.markdown(f"📅 **Eklenme:** {mulk['tarih']}")
+                        if mulk['not']:
+                            st.markdown(f"📝 **Not:** {mulk['not']}")
+            else:
+                st.markdown('<div class="info-box">🏠 Henüz mülk eklenmedi.</div>', unsafe_allow_html=True)
+
+    # ── AKILLI EŞLEŞTİRME ────────────────────────────────────
+    with p_tab3:
+        st.markdown("#### 🎯 Akıllı Eşleştirme — % Uyum Skorlu")
+
+        if not st.session_state.get('musteriler') or not st.session_state.get('mulkler'):
             st.markdown("""
-            <div class="info-box">
-            👥 Henüz müşteri eklenmedi. Sol formdan yeni müşteri ekleyin.
+            <div class="warning-box">
+            ⚠️ Eşleştirme için <b>en az 1 müşteri</b> ve <b>en az 1 mülk</b> eklenmiş olmalıdır.
+            Önce <b>Müşteriler</b> ve <b>Mülk Portföyü</b> sekmelerinden veri girin.
             </div>
             """, unsafe_allow_html=True)
+        else:
+            yon = st.radio(
+                "Arama Yönü",
+                ["👤 Müşteriye göre mülk bul", "🏠 Mülke göre müşteri bul"],
+                horizontal=True
+            )
+            st.divider()
 
-    # Müşteri Eşleştirme
-    st.divider()
-    st.markdown("#### 🎯 Akıllı Müşteri-Mülk Eşleştirme")
-
-    if st.session_state['musteriler']:
-        secilen_musteri = st.selectbox(
-            "Müşteri Seçin",
-            options=[f"{m['ad']} (#{m['id']})" for m in st.session_state['musteriler']]
-        )
-
-        portfoy_gir = st.text_area(
-            "Elinizde Bulunan Mülkleri Kısaca Tanımlayın",
-            placeholder="Mülk 1: Kadıköy, 3+1, 150m², 9.5M TL, deniz manzaralı\nMülk 2: Üsküdar, 2+1, 110m², 6.8M TL, yeni bina...",
-            height=120
-        )
-
-        if st.button("🤖 En Uygun Mülkü Bul", key="eslestir"):
-            musteri_idx = int(secilen_musteri.split("#")[1].replace(")", "")) - 1
-            secilen = st.session_state['musteriler'][musteri_idx]
-            profil = f"""
-            Ad: {secilen['ad']}
-            Bütçe: {secilen['butce_min']:,} - {secilen['butce_max']:,} TL
-            Tercih Bölge: {secilen['konum']}
-            Mülk Tipi: {', '.join(secilen['tip'])}
-            Minimum Oda: {secilen['oda']}
-            Özel Talepler: {secilen['notlar']}
-            """
-            st.session_state['eslestirme_tetik'] = True
-            st.session_state['eslestirme_profil'] = profil
-            st.session_state['eslestirme_portfoy'] = portfoy_gir
-
-        if st.session_state.get('eslestirme_tetik'):
-            st.session_state['eslestirme_tetik'] = False
-            with st.spinner("🔍 En uygun eşleşme aranıyor..."):
-                st.session_state['eslestirme_sonuc'] = musteri_eslestir(
-                    st.session_state.get('eslestirme_profil', ''),
-                    st.session_state.get('eslestirme_portfoy', '')
+            if yon == "👤 Müşteriye göre mülk bul":
+                secilen_m = st.selectbox(
+                    "Müşteri Seçin",
+                    [f"{m['ad']} — {m['konum']} | {m['butce_min']:,}–{m['butce_max']:,} TL"
+                     for m in st.session_state['musteriler']]
                 )
-            st.rerun()
+                m_idx = [f"{m['ad']} — {m['konum']} | {m['butce_min']:,}–{m['butce_max']:,} TL"
+                         for m in st.session_state['musteriler']].index(secilen_m)
+                musteri = st.session_state['musteriler'][m_idx]
 
-        if 'eslestirme_sonuc' in st.session_state:
-            st.success("✅ Eşleştirme Sonucu")
-            st.markdown(st.session_state['eslestirme_sonuc'])
-    else:
-        st.markdown("""
-        <div class="warning-box">
-        ⚠️ Eşleştirme yapmak için önce en az bir müşteri eklemeniz gerekmektedir.
-        </div>
-        """, unsafe_allow_html=True)
+                if st.button("🤖 Tüm Mülkleri Analiz Et & Skora Göre Sırala", key="m2mulk"):
+                    mulk_listesi = "\n".join([
+                        f"Mülk #{mulk['id']}: {mulk['baslik']} | {mulk['ilce']}/{mulk['mahalle']} | "
+                        f"{mulk['fiyat']:,} TL | {mulk['m2']}m² | {mulk['oda']} | "
+                        f"Bina yaşı: {mulk['yas']} | Özellikler: {', '.join(mulk['ozellik'])} | Not: {mulk['not']}"
+                        for mulk in st.session_state['mulkler']
+                    ])
+                    profil = f"""
+                    Ad: {musteri['ad']}
+                    Bütçe: {musteri['butce_min']:,} – {musteri['butce_max']:,} TL
+                    Konum tercihi: {musteri['konum']}
+                    Mülk tipi: {', '.join(musteri['tip'])}
+                    Min. oda: {musteri['oda']}
+                    Öncelikler: {', '.join(musteri.get('oncelik', []))}
+                    Özel notlar: {musteri['notlar']}
+                    """
+                    st.session_state['esles_tetik'] = True
+                    st.session_state['esles_profil'] = profil
+                    st.session_state['esles_mulkler'] = mulk_listesi
+                    st.session_state['esles_yon'] = 'musteri'
+
+            else:
+                secilen_mulk = st.selectbox(
+                    "Mülk Seçin",
+                    [f"{mulk['baslik']} — {mulk['ilce']} | {mulk['fiyat']:,} TL"
+                     for mulk in st.session_state['mulkler']]
+                )
+                mulk_idx = [f"{mulk['baslik']} — {mulk['ilce']} | {mulk['fiyat']:,} TL"
+                            for mulk in st.session_state['mulkler']].index(secilen_mulk)
+                mulk = st.session_state['mulkler'][mulk_idx]
+
+                if st.button("🤖 Tüm Müşterileri Analiz Et & Skora Göre Sırala", key="mulk2m"):
+                    musteri_listesi = "\n".join([
+                        f"Müşteri #{m['id']}: {m['ad']} | Bütçe: {m['butce_min']:,}–{m['butce_max']:,} TL | "
+                        f"Bölge: {m['konum']} | Tip: {', '.join(m['tip'])} | Min oda: {m['oda']} | "
+                        f"Öncelikler: {', '.join(m.get('oncelik',[]))} | Not: {m['notlar']}"
+                        for m in st.session_state['musteriler']
+                    ])
+                    mulk_detay = (
+                        f"{mulk['baslik']} | {mulk['ilce']}/{mulk['mahalle']} | "
+                        f"{mulk['fiyat']:,} TL | {mulk['m2']}m² | {mulk['oda']} | "
+                        f"Bina yaşı: {mulk['yas']} | Özellikler: {', '.join(mulk['ozellik'])} | Not: {mulk['not']}"
+                    )
+                    st.session_state['esles_tetik'] = True
+                    st.session_state['esles_profil'] = mulk_detay
+                    st.session_state['esles_mulkler'] = musteri_listesi
+                    st.session_state['esles_yon'] = 'mulk'
+
+            # GPT çağrısı — tetikleyici pattern
+            if st.session_state.get('esles_tetik'):
+                st.session_state['esles_tetik'] = False
+                yon_flag = st.session_state.get('esles_yon', 'musteri')
+
+                if yon_flag == 'musteri':
+                    prompt = f"""
+Sen bir uzman emlak danışmanısın. Aşağıdaki müşteri profiline göre portföydeki her mülkü değerlendir
+ve 0-100 arası uyum skoru ver. Skoru belirlerken şu kriterleri ağırlıklandır:
+- Bütçe uyumu (30 puan)
+- Konum uyumu (25 puan)
+- Oda/tip uyumu (20 puan)
+- Öncelikler & özel talepler (25 puan)
+
+MÜŞTERİ:
+{st.session_state.get('esles_profil','')}
+
+PORTFÖY:
+{st.session_state.get('esles_mulkler','')}
+
+Yanıtını şu formatta ver — her mülk için ayrı blok:
+
+---
+🏠 Mülk #[ID]: [Başlık]
+📊 UYUM SKORU: [0-100]/100
+✅ GÜÇLÜ YÖNLER: [müşteri kriterlerine göre neden uygun]
+⚠️ ZAYIF YÖNLER: [neden uyumsuz olabilir]
+💬 SUNUM STRATEJİSİ: [bu müşteriye bu mülkü nasıl sun]
+---
+
+En yüksek skordan en düşüğe doğru sırala.
+"""
+                else:
+                    prompt = f"""
+Sen bir uzman emlak danışmanısın. Aşağıdaki mülk için müşteri listesindeki her müşteriyi değerlendir
+ve 0-100 arası uyum skoru ver. Skoru belirlerken şu kriterleri ağırlıklandır:
+- Bütçe uyumu (30 puan)
+- Konum uyumu (25 puan)
+- Oda/tip uyumu (20 puan)
+- Öncelikler & özel talepler (25 puan)
+
+MÜLK:
+{st.session_state.get('esles_profil','')}
+
+MÜŞTERİLER:
+{st.session_state.get('esles_mulkler','')}
+
+Yanıtını şu formatta ver — her müşteri için ayrı blok:
+
+---
+👤 Müşteri #[ID]: [Ad]
+📊 UYUM SKORU: [0-100]/100
+✅ UYUM NEDENLERİ: [neden bu mülk bu müşteriye uygun]
+⚠️ RİSK NOKTALARI: [neden itiraz edebilir]
+💬 YAKLAŞIM TAVSİYESİ: [bu müşteriyle görüşmede nasıl davran]
+---
+
+En yüksek skordan en düşüğe doğru sırala.
+"""
+                with st.spinner("🤖 GPT-4o tüm eşleşmeleri analiz ediyor..."):
+                    st.session_state['esles_sonuc'] = gpt_calistir(prompt, sicaklik=0.3)
+                st.rerun()
+
+            if 'esles_sonuc' in st.session_state:
+                st.success("✅ Eşleştirme Tamamlandı — Skora Göre Sıralandı")
+                st.markdown(st.session_state['esles_sonuc'])
+                st.download_button(
+                    "📥 Raporu İndir",
+                    data=st.session_state['esles_sonuc'],
+                    file_name=f"eslestirme_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                    mime="text/plain"
+                )
 
 
 # --- ALT BİLGİ ---
