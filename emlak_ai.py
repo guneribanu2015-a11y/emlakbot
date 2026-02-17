@@ -573,4 +573,5 @@ with col_f1:
 with col_f2:
     st.caption("⚡ GPT-4o + Streamlit")
 with col_f3:
+
     st.caption("🔒 Verileriniz model eğitimi için kullanılmaz")
