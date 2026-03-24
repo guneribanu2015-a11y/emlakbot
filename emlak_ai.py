@@ -3,6 +3,11 @@ import openai
 from PyPDF2 import PdfReader
 import json
 from datetime import datetime
+import feedparser
+import requests
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -252,21 +257,155 @@ def musteri_eslestir(musteri_profili, portfoy):
     return gpt_calistir(prompt, sicaklik=0.4)
 
 
+# --- BÜLTEN FONKSİYONLARI ---
+
+EMLAK_RSS_KAYNAKLARI = {
+    "Türkiye": [
+        {"ad": "Hürriyet Emlak", "url": "https://www.hurriyet.com.tr/rss/kategori/emlak"},
+        {"ad": "NTV Ekonomi", "url": "https://www.ntv.com.tr/ekonomi.rss"},
+        {"ad": "Sözcü Ekonomi", "url": "https://www.sozcu.com.tr/rss/ekonomi.xml"},
+        {"ad": "Milliyet Emlak", "url": "https://www.milliyet.com.tr/rss/rssNew/emlakRss.xml"},
+    ],
+    "Dünya": [
+        {"ad": "Reuters Real Estate", "url": "https://feeds.reuters.com/reuters/businessNews"},
+        {"ad": "Housing Wire", "url": "https://www.housingwire.com/feed/"},
+        {"ad": "The Real Deal", "url": "https://therealdeal.com/feed/"},
+        {"ad": "Property Week", "url": "https://www.propertyweek.com/rss"},
+    ]
+}
+
+def rss_haber_cek(feed_url, max_haber=3):
+    """RSS feed'den haber başlıklarını ve özetlerini çeker."""
+    try:
+        feed = feedparser.parse(feed_url)
+        haberler = []
+        for entry in feed.entries[:max_haber]:
+            haber = {
+                "baslik": entry.get("title", ""),
+                "ozet": entry.get("summary", entry.get("description", ""))[:300],
+                "link": entry.get("link", ""),
+                "tarih": entry.get("published", "")
+            }
+            if haber["baslik"]:
+                haberler.append(haber)
+        return haberler
+    except Exception:
+        return []
+
+def bulten_olustur(tr_haberler, dunya_haberler, ton, dil):
+    """GPT ile haftalık emlak bülteni oluşturur."""
+    ton_talimatlari = {
+        "Profesyonel": "Resmi, analitik, veri odaklı bir dil kullan. Sektör uzmanlarına hitap et.",
+        "Samimi": "Sıcak, samimi ve anlaşılır bir dil kullan. Danışmanlara arkadaşça hitap et.",
+        "Kısa & Öz": "Her bölümü maksimum 2-3 cümleyle özetle. Net ve direkt ol.",
+        "Analitik": "Trend analizlerine, sayısal verilere ve piyasa yorumlarına ağırlık ver."
+    }
+
+    dil_talimati = {
+        "Türkçe": "Bülteni tamamen Türkçe yaz.",
+        "İngilizce": "Write the newsletter entirely in English.",
+        "İki Dilde": "Her bölümü önce Türkçe, ardından İngilizce olarak yaz."
+    }
+
+    tr_metin = "\n".join([f"- {h['baslik']}: {h['ozet']}" for h in tr_haberler]) if tr_haberler else "Haber bulunamadı."
+    dunya_metin = "\n".join([f"- {h['baslik']}: {h['ozet']}" for h in dunya_haberler]) if dunya_haberler else "Haber bulunamadı."
+
+    prompt = f"""
+Sen deneyimli bir emlak sektörü yazarısın. Aşağıdaki ham haber verilerini kullanarak
+bu haftanın emlak bültenini hazırla.
+
+TON: {ton_talimatlari.get(ton, '')}
+DİL: {dil_talimati.get(dil, '')}
+
+TÜRKİYE EMLAK HABERLERİ:
+{tr_metin}
+
+DÜNYA EMLAK HABERLERİ:
+{dunya_metin}
+
+Bülten şu bölümleri içermeli:
+
+1. 📌 HAFTANIN ÖZETİ (2-3 cümle genel değerlendirme)
+2. 🇹🇷 TÜRKİYE'DEN ÖNE ÇIKANLAR (3-4 madde, kısa yorumlarla)
+3. 🌍 DÜNYADAN ÖNE ÇIKANLAR (3-4 madde, kısa yorumlarla)
+4. 📊 HAFTANIN ANALİZİ (piyasa trendi, fırsat veya risk değerlendirmesi)
+5. 💡 DANIŞMANLARA TAVSİYE (bu hafta müşterilere ne söylemeli, nasıl konumlanmalı)
+
+Bülteni blog yazısı formatında, akıcı ve okunması kolay şekilde yaz.
+Tarih olarak bu haftayı ({datetime.now().strftime('%d %B %Y')}) kullan.
+"""
+    return gpt_calistir(prompt, sicaklik=0.6)
+
+
+def html_bulten_olustur(bulten_metni, baslik):
+    """Bülteni HTML e-posta şablonuna dönüştürür."""
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }}
+  .container {{ max-width: 680px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }}
+  .header {{ background: linear-gradient(135deg, #1a3c5e 0%, #2d6a9f 100%); padding: 30px 40px; color: white; }}
+  .header h1 {{ margin: 0; font-size: 24px; }}
+  .header p {{ margin: 8px 0 0 0; opacity: 0.85; font-size: 14px; }}
+  .content {{ padding: 30px 40px; color: #333; line-height: 1.7; white-space: pre-wrap; }}
+  .footer {{ background: #f5f7fa; padding: 20px 40px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e0e8f0; }}
+  .accent {{ color: #e8a020; font-weight: bold; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏠 EmlakBot Haftalık Bülten</h1>
+    <p>{baslik} · {datetime.now().strftime('%d %B %Y')}</p>
+  </div>
+  <div class="content">{bulten_metni}</div>
+  <div class="footer">
+    <p>Bu bülten <span class="accent">EmlakBot</span> tarafından yapay zeka ile hazırlanmıştır.</p>
+    <p>emlak-ai.com.tr</p>
+  </div>
+</div>
+</body>
+</html>
+"""
+    return html
+
+
+def email_gonder(smtp_server, smtp_port, gonderen_email, sifre, alicilar, konu, html_icerik):
+    """SMTP üzerinden HTML e-posta gönderir."""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = konu
+        msg['From'] = gonderen_email
+        msg['To'] = ", ".join(alicilar)
+        msg.attach(MIMEText(html_icerik, 'html', 'utf-8'))
+
+        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            server.login(gonderen_email, sifre)
+            server.sendmail(gonderen_email, alicilar, msg.as_string())
+        return True, "✅ E-posta başarıyla gönderildi!"
+    except Exception as e:
+        return False, f"❌ Hata: {str(e)}"
+
+
 # --- ANA BAŞLIK ---
 st.markdown("""
 <div class="main-header">
-    <h1>🏠 EmlakBot v1.0</h1>
+    <h1>🏠 EmlakBot v1.1</h1>
     <p><b>EmlakBot</b>, emlak danışmanlarının iş akışını hızlandıran yapay zeka destekli asistanıdır.
-    Tapu analizi, fiyat raporu, ilan metni ve müşteri portföy yönetimi tek platformda.</p>
+    Tapu analizi, fiyat raporu, ilan metni, müşteri portföy yönetimi ve haftalık bülten tek platformda.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # --- ANA SEKMELER ---
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📄 Sözleşme & Tapu Analizi",
     "📊 Fiyat & Piyasa Raporu",
     "✍️ İlan & Pazarlama Metni",
-    "👥 Müşteri Portföy Yönetimi"
+    "👥 Müşteri Portföy Yönetimi",
+    "📰 Haftalık Emlak Bülteni"
 ])
 
 
@@ -460,7 +599,6 @@ with tab3:
                     mime="text/plain"
                 )
             with col_btn2:
-                # Farklı platform için yeniden oluşturma
                 if st.button("🔄 Farklı Platform İçin Yeniden Oluştur"):
                     st.info("Sol panelden farklı bir platform seçip tekrar oluşturabilirsiniz.")
         else:
@@ -487,14 +625,12 @@ with tab3:
 with tab4:
     st.subheader("👥 Müşteri & Mülk Portföy Yönetimi")
 
-    # --- Alt sekmeler ---
     p_tab1, p_tab2, p_tab3 = st.tabs([
         "👤 Müşteriler",
         "🏠 Mülk Portföyü",
         "🎯 Akıllı Eşleştirme"
     ])
 
-    # ── MÜŞTERİLER ──────────────────────────────────────────
     with p_tab1:
         col1, col2 = st.columns([1, 1])
 
@@ -553,7 +689,6 @@ with tab4:
             else:
                 st.markdown('<div class="info-box">👥 Henüz müşteri eklenmedi.</div>', unsafe_allow_html=True)
 
-    # ── MÜLKPortföyü ─────────────────────────────────────────
     with p_tab2:
         col1, col2 = st.columns([1, 1])
 
@@ -627,7 +762,6 @@ with tab4:
             else:
                 st.markdown('<div class="info-box">🏠 Henüz mülk eklenmedi.</div>', unsafe_allow_html=True)
 
-    # ── AKILLI EŞLEŞTİRME ────────────────────────────────────
     with p_tab3:
         st.markdown("#### 🎯 Akıllı Eşleştirme — % Uyum Skorlu")
 
@@ -635,7 +769,6 @@ with tab4:
             st.markdown("""
             <div class="warning-box">
             ⚠️ Eşleştirme için <b>en az 1 müşteri</b> ve <b>en az 1 mülk</b> eklenmiş olmalıdır.
-            Önce <b>Müşteriler</b> ve <b>Mülk Portföyü</b> sekmelerinden veri girin.
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -704,7 +837,6 @@ with tab4:
                     st.session_state['esles_mulkler'] = musteri_listesi
                     st.session_state['esles_yon'] = 'mulk'
 
-            # GPT çağrısı — tetikleyici pattern
             if st.session_state.get('esles_tetik'):
                 st.session_state['esles_tetik'] = False
                 yon_flag = st.session_state.get('esles_yon', 'musteri')
@@ -739,11 +871,7 @@ En yüksek skordan en düşüğe doğru sırala.
                 else:
                     prompt = f"""
 Sen bir uzman emlak danışmanısın. Aşağıdaki mülk için müşteri listesindeki her müşteriyi değerlendir
-ve 0-100 arası uyum skoru ver. Skoru belirlerken şu kriterleri ağırlıklandır:
-- Bütçe uyumu (30 puan)
-- Konum uyumu (25 puan)
-- Oda/tip uyumu (20 puan)
-- Öncelikler & özel talepler (25 puan)
+ve 0-100 arası uyum skoru ver.
 
 MÜLK:
 {st.session_state.get('esles_profil','')}
@@ -776,6 +904,266 @@ En yüksek skordan en düşüğe doğru sırala.
                     file_name=f"eslestirme_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                     mime="text/plain"
                 )
+
+
+# ============================================================
+# TAB 5: HAFTALIK EMLAK BÜLTENİ
+# ============================================================
+with tab5:
+    st.subheader("📰 Haftalık Emlak Bülteni")
+    st.markdown("Türkiye ve dünya emlak haberlerini otomatik topla, GPT ile blog tarzı bülten oluştur, müşterilerine e-posta ile gönder.")
+
+    b_tab1, b_tab2, b_tab3 = st.tabs([
+        "1️⃣ Haberleri Topla",
+        "2️⃣ Bülten Oluştur",
+        "3️⃣ E-posta ile Gönder"
+    ])
+
+    # ── ADIM 1: HABERLERİ TOPLA ──────────────────────────────
+    with b_tab1:
+        st.markdown("#### 📡 Haber Kaynakları")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**🇹🇷 Türkiye Kaynakları**")
+            tr_secili = []
+            for kaynak in EMLAK_RSS_KAYNAKLARI["Türkiye"]:
+                if st.checkbox(kaynak["ad"], value=True, key=f"tr_{kaynak['ad']}"):
+                    tr_secili.append(kaynak)
+
+        with col2:
+            st.markdown("**🌍 Dünya Kaynakları**")
+            dunya_secili = []
+            for kaynak in EMLAK_RSS_KAYNAKLARI["Dünya"]:
+                if st.checkbox(kaynak["ad"], value=True, key=f"dunya_{kaynak['ad']}"):
+                    dunya_secili.append(kaynak)
+
+        st.markdown("---")
+        st.markdown("#### ➕ Ek RSS Kaynağı Ekle (İsteğe Bağlı)")
+        col_ek1, col_ek2 = st.columns([1, 2])
+        with col_ek1:
+            ek_ad = st.text_input("Kaynak Adı", placeholder="örn: Sabah Ekonomi")
+        with col_ek2:
+            ek_url = st.text_input("RSS URL", placeholder="https://...")
+
+        haber_sayisi = st.slider("Kaynak başına haber sayısı", min_value=1, max_value=5, value=3)
+
+        if st.button("📡 Haberleri Çek", key="haber_cek", type="primary"):
+            tr_haberler = []
+            dunya_haberler = []
+            hata_sayisi = 0
+
+            progress = st.progress(0, text="Haberler çekiliyor...")
+            toplam = len(tr_secili) + len(dunya_secili) + (1 if ek_url else 0)
+            tamamlanan = 0
+
+            for kaynak in tr_secili:
+                haberler = rss_haber_cek(kaynak["url"], haber_sayisi)
+                if haberler:
+                    tr_haberler.extend(haberler)
+                else:
+                    hata_sayisi += 1
+                tamamlanan += 1
+                progress.progress(tamamlanan / max(toplam, 1), text=f"'{kaynak['ad']}' çekiliyor...")
+
+            for kaynak in dunya_secili:
+                haberler = rss_haber_cek(kaynak["url"], haber_sayisi)
+                if haberler:
+                    dunya_haberler.extend(haberler)
+                else:
+                    hata_sayisi += 1
+                tamamlanan += 1
+                progress.progress(tamamlanan / max(toplam, 1), text=f"'{kaynak['ad']}' çekiliyor...")
+
+            if ek_url and ek_ad:
+                haberler = rss_haber_cek(ek_url, haber_sayisi)
+                if haberler:
+                    tr_haberler.extend(haberler)
+                tamamlanan += 1
+                progress.progress(1.0, text="Tamamlandı!")
+
+            progress.empty()
+
+            st.session_state['bulten_tr_haberler'] = tr_haberler
+            st.session_state['bulten_dunya_haberler'] = dunya_haberler
+
+            if tr_haberler or dunya_haberler:
+                st.success(f"✅ {len(tr_haberler)} TR haberi + {len(dunya_haberler)} dünya haberi çekildi.")
+                if hata_sayisi > 0:
+                    st.warning(f"⚠️ {hata_sayisi} kaynak yanıt vermedi (RSS değişmiş olabilir).")
+
+                col_tr, col_dunya = st.columns(2)
+                with col_tr:
+                    st.markdown("**🇹🇷 TR Haberleri**")
+                    for h in tr_haberler[:6]:
+                        st.markdown(f"• [{h['baslik'][:60]}...]({h['link']})" if h['link'] else f"• {h['baslik'][:60]}...")
+
+                with col_dunya:
+                    st.markdown("**🌍 Dünya Haberleri**")
+                    for h in dunya_haberler[:6]:
+                        st.markdown(f"• [{h['baslik'][:60]}...]({h['link']})" if h['link'] else f"• {h['baslik'][:60]}...")
+
+                st.info("➡️ **2. Bülten Oluştur** sekmesine geçerek bülteni oluşturun.")
+            else:
+                st.error("❌ Hiçbir kaynaktan haber çekilemedi. İnternet bağlantısını veya RSS adreslerini kontrol edin.")
+
+    # ── ADIM 2: BÜLTEN OLUŞTUR ───────────────────────────────
+    with b_tab2:
+        st.markdown("#### ✍️ Bülten Ayarları")
+
+        if not st.session_state.get('bulten_tr_haberler') and not st.session_state.get('bulten_dunya_haberler'):
+            st.markdown("""
+            <div class="warning-box">
+            ⚠️ Önce <b>1. Haberleri Topla</b> sekmesinden haberleri çekin.
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            tr_sayi = len(st.session_state.get('bulten_tr_haberler', []))
+            dunya_sayi = len(st.session_state.get('bulten_dunya_haberler', []))
+            st.success(f"✅ {tr_sayi} TR + {dunya_sayi} dünya haberi hazır.")
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                bulten_baslik = st.text_input("Bülten Başlığı", value=f"Haftalık Emlak Bülteni — {datetime.now().strftime('%d %B %Y')}")
+            with col2:
+                ton = st.selectbox("Yazım Tonu", ["Profesyonel", "Samimi", "Kısa & Öz", "Analitik"])
+            with col3:
+                dil = st.selectbox("Dil", ["Türkçe", "İngilizce", "İki Dilde"])
+
+            if st.button("🤖 Bülteni Oluştur", key="bulten_olustur", type="primary"):
+                with st.spinner("📝 GPT-4o bülteni yazıyor..."):
+                    bulten_metni = bulten_olustur(
+                        st.session_state.get('bulten_tr_haberler', []),
+                        st.session_state.get('bulten_dunya_haberler', []),
+                        ton, dil
+                    )
+                st.session_state['bulten_metni'] = bulten_metni
+                st.session_state['bulten_baslik'] = bulten_baslik
+                st.rerun()
+
+            if 'bulten_metni' in st.session_state:
+                st.success("✅ Bülten hazır!")
+                st.divider()
+
+                bulten_duzenle = st.text_area(
+                    "Bülteni düzenleyebilirsiniz:",
+                    value=st.session_state['bulten_metni'],
+                    height=500
+                )
+                st.session_state['bulten_metni_son'] = bulten_duzenle
+
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
+                    st.download_button(
+                        "📥 Metin Olarak İndir (.txt)",
+                        data=bulten_duzenle,
+                        file_name=f"bulten_{datetime.now().strftime('%Y%m%d')}.txt",
+                        mime="text/plain"
+                    )
+                with col_dl2:
+                    html_icerik = html_bulten_olustur(bulten_duzenle, st.session_state.get('bulten_baslik', ''))
+                    st.download_button(
+                        "📧 HTML E-posta Olarak İndir",
+                        data=html_icerik,
+                        file_name=f"bulten_{datetime.now().strftime('%Y%m%d')}.html",
+                        mime="text/html"
+                    )
+
+                st.info("➡️ **3. E-posta ile Gönder** sekmesinden müşterilerinize gönderin.")
+
+    # ── ADIM 3: E-POSTA GÖNDER ───────────────────────────────
+    with b_tab3:
+        st.markdown("#### 📧 E-posta Gönderimi")
+
+        if 'bulten_metni' not in st.session_state:
+            st.markdown("""
+            <div class="warning-box">
+            ⚠️ Önce <b>2. Bülten Oluştur</b> sekmesinden bülteni hazırlayın.
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.success(f"✅ Bülten hazır: **{st.session_state.get('bulten_baslik', '')}**")
+            st.divider()
+
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                st.markdown("#### ⚙️ SMTP Ayarları")
+                smtp_server = st.selectbox(
+                    "E-posta Sağlayıcısı",
+                    ["smtp.gmail.com", "smtp.yandex.com", "smtp.outlook.com", "Diğer"]
+                )
+                if smtp_server == "Diğer":
+                    smtp_server = st.text_input("SMTP Sunucu Adresi")
+                smtp_port = st.number_input("Port", value=465, min_value=1, max_value=9999)
+                gonderen = st.text_input("Gönderen E-posta", placeholder="sizin@gmail.com")
+                sifre = st.text_input("Uygulama Şifresi", type="password",
+                    help="Gmail için: Google Hesabı > Güvenlik > Uygulama Şifreleri")
+                konu = st.text_input("E-posta Konusu",
+                    value=st.session_state.get('bulten_baslik', 'Haftalık Emlak Bülteni'))
+
+            with col2:
+                st.markdown("#### 👥 Alıcılar")
+
+                # Müşteri listesinden otomatik çek
+                if st.session_state.get('musteriler'):
+                    musteri_emailler = [
+                        m['eposta'] for m in st.session_state['musteriler']
+                        if m.get('eposta') and '@' in m.get('eposta', '')
+                    ]
+                    if musteri_emailler:
+                        st.markdown(f"**Portföydeki müşteriler ({len(musteri_emailler)} kişi):**")
+                        portfoy_sec = st.multiselect(
+                            "Müşterilerden seçin:",
+                            options=musteri_emailler,
+                            default=musteri_emailler
+                        )
+                    else:
+                        portfoy_sec = []
+                        st.info("ℹ️ Müşteri portföyünde e-posta adresi bulunamadı.")
+                else:
+                    portfoy_sec = []
+
+                ek_alicilar_txt = st.text_area(
+                    "Ek Alıcılar (her satıra bir e-posta)",
+                    placeholder="musteri1@email.com\nmusteri2@email.com",
+                    height=120
+                )
+                ek_alicilar = [e.strip() for e in ek_alicilar_txt.strip().splitlines() if '@' in e]
+                tum_alicilar = list(set(portfoy_sec + ek_alicilar))
+
+                if tum_alicilar:
+                    st.success(f"📬 Toplam **{len(tum_alicilar)}** alıcıya gönderilecek.")
+                else:
+                    st.warning("⚠️ En az bir alıcı ekleyin.")
+
+            st.divider()
+
+            if st.button("📤 Bülteni Gönder", type="primary", disabled=not tum_alicilar):
+                if not gonderen or not sifre:
+                    st.error("❌ Gönderen e-posta ve şifre zorunludur.")
+                else:
+                    html_icerik = html_bulten_olustur(
+                        st.session_state.get('bulten_metni_son', st.session_state.get('bulten_metni', '')),
+                        st.session_state.get('bulten_baslik', '')
+                    )
+                    with st.spinner(f"📤 {len(tum_alicilar)} alıcıya gönderiliyor..."):
+                        basari, mesaj = email_gonder(
+                            smtp_server, smtp_port, gonderen, sifre,
+                            tum_alicilar, konu, html_icerik
+                        )
+                    if basari:
+                        st.success(mesaj)
+                        st.balloons()
+                    else:
+                        st.error(mesaj)
+                        st.markdown("""
+                        <div class="info-box">
+                        💡 <b>Gmail kullanıyorsanız:</b> Normal şifreniz değil, <b>Uygulama Şifresi</b> gereklidir.
+                        Google Hesabı → Güvenlik → 2 Adımlı Doğrulama → Uygulama Şifreleri
+                        </div>
+                        """, unsafe_allow_html=True)
 
 
 # --- ALT BİLGİ ---
