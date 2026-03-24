@@ -364,7 +364,7 @@ def html_bulten_olustur(bulten_metni, baslik):
   <div class="content">{bulten_metni}</div>
   <div class="footer">
     <p>Bu bülten <span class="accent">EmlakBot</span> tarafından yapay zeka ile hazırlanmıştır.</p>
-    <p>emlak-ai.com.tr</p>
+    <p>emlak-ai.site</p>
   </div>
 </div>
 </body>
