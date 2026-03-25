@@ -144,12 +144,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- GÜVENLİ API ANAHTARI KONTROLÜ ---
-if "OPENAI_API_KEY" in st.secrets:
-    api_key = st.secrets["OPENAI_API_KEY"]
-else:
-    st.sidebar.error("⚠️ API Anahtarı bulunamadı! Streamlit Cloud ayarlarından 'Secrets' kısmına OPENAI_API_KEY tanımlayın.")
-    st.stop()
-
+import os
+api_key = os.environ.get("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", None)
+if not api_key:
+    st.sidebar.error("⚠️ API Anahtarı bulunamadı! OPENAI_API_KEY tanımlayın.")
+    st.stop() 
 # --- SESSION STATE BAŞLATMA ---
 if 'musteriler' not in st.session_state:
     st.session_state['musteriler'] = []
