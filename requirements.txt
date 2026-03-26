@@ -3,3 +3,4 @@ openai>=1.12.0
 PyPDF2>=3.0.1
 feedparser
 requests
+newsapi-python
