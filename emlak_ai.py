@@ -399,7 +399,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- ANA SEKMELER ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📄 Sözleşme & Tapu Analizi",
     "📊 Fiyat & Piyasa Raporu",
     "✍️ İlan & Pazarlama Metni",
