@@ -8,6 +8,7 @@ import requests
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from emlak_haber import haber_bolumu_goster
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
