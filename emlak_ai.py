@@ -4,7 +4,7 @@ from PyPDF2 import PdfReader
 import json
 from datetime import datetime
 import feedparser
-import requestsNTV
+import requests
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
