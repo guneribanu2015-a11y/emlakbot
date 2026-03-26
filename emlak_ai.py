@@ -4,7 +4,7 @@ from PyPDF2 import PdfReader
 import json
 from datetime import datetime
 import feedparser
-import requests
+import requestsNTV
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -262,15 +262,19 @@ def musteri_eslestir(musteri_profili, portfoy):
 EMLAK_RSS_KAYNAKLARI = {
     "Türkiye": [
         {"ad": "Hürriyet Emlak", "url": "https://www.hurriyet.com.tr/rss/kategori/emlak"},
-        {"ad": "NTV Ekonomi", "url": "https://www.ntv.com.tr/ekonomi.rss"},
-        {"ad": "Sözcü Ekonomi", "url": "https://www.sozcu.com.tr/rss/ekonomi.xml"},
         {"ad": "Milliyet Emlak", "url": "https://www.milliyet.com.tr/rss/rssNew/emlakRss.xml"},
+        {"ad": "Emlak Haberi", "url": "https://www.emlakhaberi.com/feed/"},
+        {"ad": "Emlak Kulisi", "url": "https://emlakkulisi.com/feed/"},
+        {"ad": "Emlakjet", "url": "https://www.emlakjet.com/haber/feed/"},
+        {"ad": "Emlak Tasondakika", "url": "https://www.emlaktasondakika.com/feed/"},
     ],
     "Dünya": [
-        {"ad": "Reuters Real Estate", "url": "https://feeds.reuters.com/reuters/businessNews"},
-        {"ad": "Housing Wire", "url": "https://www.housingwire.com/feed/"},
+        {"ad": "Property Forum", "url": "https://www.property-forum.eu/rss/news"},
+        {"ad": "EuropaProperty", "url": "https://europaproperty.com/feed/"},
+        {"ad": "Mingtiandi", "url": "https://www.mingtiandi.com/feed/"},
+        {"ad": "Real Estate Asia", "url": "https://realestateasia.com/feed/"},
         {"ad": "The Real Deal", "url": "https://therealdeal.com/feed/"},
-        {"ad": "Property Week", "url": "https://www.propertyweek.com/rss"},
+        {"ad": "Inman", "url": "https://www.inman.com/feed/"},
     ]
 }
 
