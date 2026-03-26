@@ -404,7 +404,8 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Fiyat & Piyasa Raporu",
     "✍️ İlan & Pazarlama Metni",
     "👥 Müşteri Portföy Yönetimi",
-    "📰 Haftalık Emlak Bülteni"
+    "📰 Haftalık Emlak Bülteni",
+    "📰 Emlak Haberleri"
 ])
 
 
