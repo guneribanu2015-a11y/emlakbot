@@ -283,15 +283,27 @@ def rss_haber_cek(feed_url, max_haber=3):
     try:
         feed = feedparser.parse(feed_url)
         haberler = []
-        for entry in feed.entries[:max_haber]:
+        simdi = datetime.now()
+        yedi_gun_once = simdi - timedelta(days=7)
+        for entry in feed.entries[:max_haber*3]:
             haber = {
                 "baslik": entry.get("title", ""),
                 "ozet": entry.get("summary", entry.get("description", ""))[:300],
                 "link": entry.get("link", ""),
                 "tarih": entry.get("published", "")
             }
-            if haber["baslik"]:
-                haberler.append(haber)
+            if not haber["baslik"]:
+                continue
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                try:
+                    haber_tarihi = datetime(*entry.published_parsed[:6])
+                    if haber_tarihi < yedi_gun_once:
+                        continue
+                except:
+                    pass
+            haberler.append(haber)
+            if len(haberler) >= max_haber:
+                break
         return haberler
     except Exception:
         return []
