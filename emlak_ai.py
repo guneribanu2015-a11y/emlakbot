@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 from PyPDF2 import PdfReader
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import feedparser
 import requests
 import smtplib
