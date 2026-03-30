@@ -58,17 +58,17 @@ def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> lis
         yedi_gun_once = simdi - timedelta(days=7)
         for entry in feed.entries[:max_haber*3]:
             tarih = ""
-if hasattr(entry, "published_parsed") and entry.published_parsed:
-    try:
-        haber_tarihi = datetime(*entry.published_parsed[:6])
-        if haber_tarihi < yedi_gun_once:
-            continue
-        tarih = haber_tarihi.strftime("%d %b %Y")
-    except:
-        pass
-baslik = entry.get("title", "")
-if not baslik:
-    continue
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                try:
+                    haber_tarihi = datetime(*entry.published_parsed[:6])
+                    if haber_tarihi < yedi_gun_once:
+                        continue
+                    tarih = haber_tarihi.strftime("%d %b %Y")
+                except Exception:
+                    pass
+            baslik = entry.get("title", "")
+            if not baslik:
+                continue
             haberler.append({
                 "baslik": baslik,
                 "link":   entry.get("link", "#"),
@@ -81,7 +81,6 @@ if not baslik:
         return haberler
     except Exception:
         return []
-
 @st.cache_data(ttl=1800)
 def tum_haberleri_cek(max_haber_per_kaynak: int = 5) -> list[dict]:
     """Tüm kaynaklardan haberleri çeker ve birleştirir."""
