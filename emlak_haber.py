@@ -1,6 +1,6 @@
 import streamlit as st
 import feedparser
-import datetime
+from datetime import datetime, timedelta
 
 # ─────────────────────────────────────────────
 # KAYNAK TANIMI
