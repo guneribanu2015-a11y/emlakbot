@@ -48,17 +48,26 @@ def google_news_url(sorgu: str, dil: str = "tr", bolge: str = "TR") -> str:
     return f"https://news.google.com/rss/search?{params}"
 
 
-@st.cache_data(ttl=1800)  # 30 dakika cache
+@st.cache_data(ttl=1800)
 def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> list[dict]:
     """Bir kaynaktan haber çeker."""
     url = google_news_url(sorgu)
     try:
         feed = feedparser.parse(url)
         haberler = []
-        for entry in feed.entries[:max_haber]:
+        simdi = datetime.now()
+        yedi_gun_once = simdi - timedelta(days=7)
+        for entry in feed.entries[:max_haber*3]:
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                try:
+                    haber_tarihi = datetime(*entry.published_parsed[:6])
+                    if haber_tarihi < yedi_gun_once:
+                        continue
+                except:
+                    pass
             tarih = ""
             if hasattr(entry, "published_parsed") and entry.published_parsed:
-                dt = datetime.datetime(*entry.published_parsed[:6])
+                dt = datetime(*entry.published_parsed[:6])
                 tarih = dt.strftime("%d %b %Y")
             haberler.append({
                 "baslik": entry.get("title", ""),
@@ -67,6 +76,8 @@ def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> lis
                 "kaynak": etiket,
                 "kategori": kategori,
             })
+            if len(haberler) >= max_haber:
+                break
         return haberler
     except Exception:
         return []
