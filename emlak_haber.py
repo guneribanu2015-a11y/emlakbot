@@ -50,7 +50,6 @@ def google_news_url(sorgu: str, dil: str = "tr", bolge: str = "TR") -> str:
 
 @st.cache_data(ttl=1800)
 def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> list[dict]:
-    """Bir kaynaktan haber çeker."""
     url = google_news_url(sorgu)
     try:
         feed = feedparser.parse(url)
@@ -58,19 +57,20 @@ def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> lis
         simdi = datetime.now()
         yedi_gun_once = simdi - timedelta(days=7)
         for entry in feed.entries[:max_haber*3]:
-            if hasattr(entry, "published_parsed") and entry.published_parsed:
-                try:
-                    haber_tarihi = datetime(*entry.published_parsed[:6])
-                    if haber_tarihi < yedi_gun_once:
-                        continue
-                except:
-                    pass
-            tarih = ""
-            if hasattr(entry, "published_parsed") and entry.published_parsed:
-                dt = datetime(*entry.published_parsed[:6])
-                tarih = dt.strftime("%d %b %Y")
+            if not hasattr(entry, "published_parsed") or not entry.published_parsed:
+                continue
+            try:
+                haber_tarihi = datetime(*entry.published_parsed[:6])
+                if haber_tarihi < yedi_gun_once:
+                    continue
+                tarih = haber_tarihi.strftime("%d %b %Y")
+            except:
+                continue
+            baslik = entry.get("title", "")
+            if not baslik:
+                continue
             haberler.append({
-                "baslik": entry.get("title", ""),
+                "baslik": baslik,
                 "link":   entry.get("link", "#"),
                 "tarih":  tarih,
                 "kaynak": etiket,
@@ -81,7 +81,6 @@ def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> lis
         return haberler
     except Exception:
         return []
-
 
 @st.cache_data(ttl=1800)
 def tum_haberleri_cek(max_haber_per_kaynak: int = 5) -> list[dict]:
