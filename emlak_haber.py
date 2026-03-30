@@ -57,18 +57,18 @@ def haber_cek(sorgu: str, etiket: str, kategori: str, max_haber: int = 5) -> lis
         simdi = datetime.now()
         yedi_gun_once = simdi - timedelta(days=7)
         for entry in feed.entries[:max_haber*3]:
-            if not hasattr(entry, "published_parsed") or not entry.published_parsed:
-                continue
-            try:
-                haber_tarihi = datetime(*entry.published_parsed[:6])
-                if haber_tarihi < yedi_gun_once:
-                    continue
-                tarih = haber_tarihi.strftime("%d %b %Y")
-            except:
-                continue
-            baslik = entry.get("title", "")
-            if not baslik:
-                continue
+            tarih = ""
+if hasattr(entry, "published_parsed") and entry.published_parsed:
+    try:
+        haber_tarihi = datetime(*entry.published_parsed[:6])
+        if haber_tarihi < yedi_gun_once:
+            continue
+        tarih = haber_tarihi.strftime("%d %b %Y")
+    except:
+        pass
+baslik = entry.get("title", "")
+if not baslik:
+    continue
             haberler.append({
                 "baslik": baslik,
                 "link":   entry.get("link", "#"),
